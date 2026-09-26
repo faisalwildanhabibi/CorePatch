@@ -26,4 +26,8 @@
     <string name="bypass_block">Bypass installation blocklist</string>
     <string name="bypass_block_summary">Bypass blocklists on devices such as Nothing Phone.</string>
     <string name="hide_launcher_icon">Hide launcher icon</string>
+    <!-- Restricted Settings Bypass (Android 13+ / API 33+) -->
+    <string name="bypass_restricted_settings">Disable Restricted Settings</string>
+    <string name="bypass_restricted_settings_summary">Allow all sideloaded apps to access Accessibility Services, Notification Listeners, and other sensitive settings without the \'Restricted Settings\' dialog. Bypasses AppOpsService (Android 13\u201314) and EnhancedConfirmationManager (Android 15\u201317).</string>
+    <string name="bypass_restricted_settings_warning">This removes a security barrier. Only enable if you trust all installed apps.</string>
 </resources>

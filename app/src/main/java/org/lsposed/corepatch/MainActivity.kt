@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ComponentName
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.Menu
@@ -92,6 +93,15 @@ class MainActivity : Activity() {
         val bypassBlock = SwitchData(
             getString(R.string.bypass_block), getString(R.string.bypass_block_summary), Config.BYPASS_BLOCK
         )
+        // Restricted Settings bypass — Android 13+ (API 33+) only
+        val bypassRestrictedSettings = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            SwitchData(
+                getString(R.string.bypass_restricted_settings),
+                getString(R.string.bypass_restricted_settings_summary),
+                Config.BYPASS_RESTRICTED_SETTINGS,
+                getString(R.string.bypass_restricted_settings_warning)
+            )
+        } else null
 
         val dataSet = arrayListOf(
             bypassDowngrade,
@@ -103,8 +113,10 @@ class MainActivity : Activity() {
             allowHiddenApisForSystemApps,
             bypassSharedUser,
             disableVerificationAgent,
-            bypassBlock
-        )
+            bypassBlock,
+        ).also { list ->
+            bypassRestrictedSettings?.let { list.add(it) }
+        }
 
         val adapter = MultiTypeListAdapter(dataSet)
 
