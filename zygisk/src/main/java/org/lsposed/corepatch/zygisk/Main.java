@@ -8,45 +8,79 @@ import com.v7878.r8.annotations.DoNotObfuscateType;
 import com.v7878.r8.annotations.DoNotShrink;
 import com.v7878.r8.annotations.DoNotShrinkType;
 import com.v7878.zygisk.ZygoteLoader;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 @DoNotShrinkType
 @DoNotObfuscateType
 public class Main {
     public static final String TAG = Logger.TAG;
 
-    private static void adaptForAndroid17() {
+    private static Object getUnsafe() {
         try {
-            Field sdkInt = Build.VERSION.class.getDeclaredField("SDK_INT");
-            sdkInt.setAccessible(true);
-            int current = sdkInt.getInt(null);
-            if (current > 36) {
-                sdkInt.setInt(null, 36);
-                Logger.i("Adapted Build.VERSION.SDK_INT from " + current + " to 36 for VM compatibility");
+            Class<?> unsafeClass = Class.forName("sun.misc.Unsafe");
+            Field f = unsafeClass.getDeclaredField("theUnsafe");
+            f.setAccessible(true);
+            return f.get(null);
+        } catch (Throwable t1) {
+            try {
+                Class<?> unsafeClass = Class.forName("sun.misc.Unsafe");
+                Constructor<?> c = unsafeClass.getDeclaredConstructor();
+                c.setAccessible(true);
+                return c.newInstance();
+            } catch (Throwable t2) {
+                return null;
             }
+        }
+    }
+
+    private static void setStaticIntUnsafe(Object unsafe, Class<?> clazz, String fieldName, int value) {
+        if (unsafe == null) return;
+        try {
+            Class<?> unsafeClass = unsafe.getClass();
+            Field field = clazz.getDeclaredField(fieldName);
+            field.setAccessible(true);
+
+            Method staticFieldOffset = unsafeClass.getMethod("staticFieldOffset", Field.class);
+            Method staticFieldBase = unsafeClass.getMethod("staticFieldBase", Field.class);
+            Method putInt = unsafeClass.getMethod("putInt", Object.class, long.class, int.class);
+
+            long offset = (long) staticFieldOffset.invoke(unsafe, field);
+            Object base = staticFieldBase.invoke(unsafe, field);
+            putInt.invoke(unsafe, base, offset, value);
+
+            Logger.i("Adapted " + clazz.getSimpleName() + "." + fieldName + " to " + value + " via Unsafe");
         } catch (Throwable th) {
-            Logger.w("Could not adapt SDK_INT: " + th.getMessage());
+            Logger.w("Failed to adapt " + clazz.getSimpleName() + "." + fieldName + ": " + th.getMessage());
+        }
+    }
+
+    private static void adaptForAndroid17() {
+        Object unsafe = getUnsafe();
+        if (unsafe == null) {
+            Logger.w("sun.misc.Unsafe not available");
+            return;
         }
 
+        // Adapt Build.VERSION.SDK_INT
         try {
-            Field sdkIntFull = Build.VERSION.class.getDeclaredField("SDK_INT_FULL");
-            sdkIntFull.setAccessible(true);
-            int current = sdkIntFull.getInt(null);
-            if (current > 3600000) {
-                sdkIntFull.setInt(null, 3600000);
+            if (Build.VERSION.SDK_INT > 36) {
+                setStaticIntUnsafe(unsafe, Build.VERSION.class, "SDK_INT", 36);
             }
         } catch (Throwable ignored) {
         }
 
+        // Adapt Build.VERSION.SDK_INT_FULL
+        try {
+            setStaticIntUnsafe(unsafe, Build.VERSION.class, "SDK_INT_FULL", 3600000);
+        } catch (Throwable ignored) {
+        }
+
+        // Adapt com.v7878.misc.Version.CORRECT_SDK_INT
         try {
             Class<?> versionClass = Class.forName("com.v7878.misc.Version");
-            Field correctSdk = versionClass.getDeclaredField("CORRECT_SDK_INT");
-            correctSdk.setAccessible(true);
-            int current = correctSdk.getInt(null);
-            if (current > 36) {
-                correctSdk.setInt(null, 36);
-                Logger.i("Adapted Version.CORRECT_SDK_INT to 36");
-            }
+            setStaticIntUnsafe(unsafe, versionClass, "CORRECT_SDK_INT", 36);
         } catch (Throwable ignored) {
         }
     }
