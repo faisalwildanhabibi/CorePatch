@@ -7,7 +7,9 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // PREFER_SETTINGS: repo di settings diutamakan, tapi plugin boleh tambah repo sendiri
+    // Lebih kompatibel dengan plugin pihak ketiga seperti ZygoteLoader
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         mavenLocal {
             content {

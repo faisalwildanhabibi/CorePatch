@@ -40,8 +40,39 @@ jobs:
           path: |
             ~/.gradle/wrapper
             ~/.gradle/caches
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
-          restore-keys: gradle-${{ runner.os }}-
+          key: gradle-zygisk-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
+          restore-keys: gradle-zygisk-${{ runner.os }}-
+
+      - name: Prewarm JitPack dependencies
+        run: |
+          echo "=== Prewarming JitPack artifacts ==="
+          # Trigger JitPack build for all required artifacts (transitive included)
+          JITPACK="https://jitpack.io"
+          # ZygoteLoader plugin
+          curl -sf --retry 5 --retry-delay 10 \
+            "$JITPACK/com/github/vova7878/ZygoteLoader/358a146d87/build.log" || true
+          # AndroidVMTools
+          curl -sf --retry 5 --retry-delay 10 \
+            "$JITPACK/com/github/vova7878/AndroidVMTools/118f566096/build.log" || true
+          # R8Annotations
+          curl -sf --retry 5 --retry-delay 10 \
+            "$JITPACK/com/github/vova7878/R8Annotations/v0.0.3/build.log" || true
+          # DexFile (transitive dependency of AndroidVMTools)
+          curl -sf --retry 5 --retry-delay 10 \
+            "$JITPACK/com/github/vova7878/DexFile/v1.0.3/build.log" || true
+          echo "=== Waiting for JitPack builds ==="
+          sleep 15
+          # Verify artifacts are available
+          for URL in \
+            "$JITPACK/com/github/vova7878/ZygoteLoader/358a146d87/ZygoteLoader-358a146d87.pom" \
+            "$JITPACK/com/github/vova7878/AndroidVMTools/118f566096/AndroidVMTools-118f566096.pom" \
+            "$JITPACK/com/github/vova7878/DexFile/v1.0.3/DexFile-v1.0.3.pom"; do
+            if curl -sf "$URL" > /dev/null; then
+              echo "OK: $URL"
+            else
+              echo "WARN: Not yet available: $URL"
+            fi
+          done
 
       - name: Build info
         run: |
@@ -51,7 +82,7 @@ jobs:
           ./gradlew --version
 
       - name: Build ZygiskCore Release
-        run: ./gradlew :zygisk:assembleFullRelease --stacktrace
+        run: ./gradlew :zygisk:assembleFullRelease --stacktrace --info 2>&1 | tail -200
 
       - name: Build ZygiskCore Debug
         run: ./gradlew :zygisk:assembleFullDebug --stacktrace
@@ -62,19 +93,19 @@ jobs:
           echo "=== Zygisk build outputs ==="
           find zygisk/build/outputs -type f | sort
           echo "=== File sizes ==="
-          find zygisk/build/outputs -name '*.zip' -o -name '*.apk' | xargs ls -lh 2>/dev/null || true
+          find zygisk/build/outputs \( -name '*.zip' -o -name '*.apk' \) -exec ls -lh {} \;
 
       - name: Rename artifacts with branch + SHA
         if: success()
         run: |
           BRANCH=$(echo "${{ github.ref_name }}" | tr '/' '-')
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          find zygisk/build/outputs -name '*.zip' -o -name '*.apk' | while read f; do
+          find zygisk/build/outputs \( -name '*.zip' -o -name '*.apk' \) | while read f; do
             DIR=$(dirname "$f")
-            BASE=$(basename "$f" .${f##*.})
             EXT="${f##*.}"
+            BASE=$(basename "$f" ".${EXT}")
             mv "$f" "$DIR/${BASE}-${BRANCH}-${SHORT_SHA}.${EXT}"
-            echo "Renamed: $DIR/${BASE}-${BRANCH}-${SHORT_SHA}.${EXT}"
+            echo "Renamed: $(basename $DIR/${BASE}-${BRANCH}-${SHORT_SHA}.${EXT})"
           done
 
       - name: Upload ZygiskCore artifacts
@@ -97,10 +128,3 @@ jobs:
           echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`$(echo ${{ github.sha }} | cut -c1-7)\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Features" >> $GITHUB_STEP_SUMMARY
-          echo "- No Xposed/LSPosed required" >> $GITHUB_STEP_SUMMARY
-          echo "- Works with Zygisk Next + ReSukiSu" >> $GITHUB_STEP_SUMMARY
-          echo "- 13 CorePatch N hooks + Restricted Settings bypass" >> $GITHUB_STEP_SUMMARY
-          echo "- Android 8.1\u201317 (API 28\u201337) support" >> $GITHUB_STEP_SUMMARY
-          echo "- Tested target: PixelOS 17 / Poco F3" >> $GITHUB_STEP_SUMMARY
