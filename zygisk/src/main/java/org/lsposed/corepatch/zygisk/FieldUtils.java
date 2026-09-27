@@ -1,7 +1,5 @@
 package org.lsposed.corepatch.zygisk;
 
-import android.util.Log;
-
 import java.lang.reflect.Field;
 
 /**
@@ -18,21 +16,19 @@ public class FieldUtils {
      */
     public static void setStaticBoolean(ClassLoader loader, String className, String fieldName) {
         try {
-            Class<?> clazz = Class.forName(className, true, loader);
+            Class<?> clazz = Class.forName(className, false, loader);
             Field field = clazz.getDeclaredField(fieldName);
             field.setAccessible(true);
             field.set(null, true);
-            if (BuildConfig.DEBUG) {
-                Log.i(Main.TAG, "Set " + className + "." + fieldName + " = true");
-            }
+            Logger.i("Set " + className + "." + fieldName + " = true");
         } catch (ClassNotFoundException ex) {
             // Class not present on this ROM — skip silently
-            Log.d(Main.TAG, "setStaticBoolean: class not found: " + className);
+            Logger.d("setStaticBoolean: class not found: " + className);
         } catch (NoSuchFieldException ex) {
             // Field renamed in this ROM — skip
-            Log.d(Main.TAG, "setStaticBoolean: field not found: " + className + "." + fieldName);
+            Logger.d("setStaticBoolean: field not found: " + className + "." + fieldName);
         } catch (Throwable ex) {
-            Log.e(Main.TAG, "setStaticBoolean failed: " + className + "." + fieldName, ex);
+            Logger.e("setStaticBoolean failed: " + className + "." + fieldName, ex);
         }
     }
 }

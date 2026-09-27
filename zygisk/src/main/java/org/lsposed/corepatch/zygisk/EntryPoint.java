@@ -1,32 +1,32 @@
 package org.lsposed.corepatch.zygisk;
 
-import android.util.Log;
-
-/**
- * EntryPoint — Orchestrates hook application for each process context.
- *
- * Called from SystemServerInit when system_server is starting up.
- */
 public class EntryPoint {
-
-    /**
-     * Apply all system_server hooks.
-     * Called from SystemServerInit when com.android.server.SystemServer is detected.
-     *
-     * @param loader The ClassLoader for system_server classes.
-     */
-    public static void initSystemServer(ClassLoader loader) {
-        if (BuildConfig.DEBUG) {
-            Log.i(Main.TAG, "Applying system_server hooks via ClassLoader: " + loader);
+    public static void mainCommon() {
+        try {
+            ClassLoader loader = ClassLoader.getSystemClassLoader();
+            Logger.i("Applying common cryptographic hooks via system ClassLoader: " + loader);
+            BulkHooker hooks = new BulkHooker();
+            HookList.initCommon(hooks);
+            hooks.apply(loader);
+            Logger.i("Common cryptographic hooks applied successfully");
+        } catch (Throwable th) {
+            Logger.e("Failed to apply common hooks", th);
         }
+    }
 
-        BulkHooker hooks = new BulkHooker();
-        HookList.initSystem(hooks);
-        hooks.apply(loader);
+    public static void initSystemServer(ClassLoader loader) {
+        try {
+            Logger.i("Applying system_server hooks via ClassLoader: " + loader);
+            BulkHooker hooks = new BulkHooker();
+            HookList.initSystem(hooks);
+            hooks.apply(loader);
 
-        // Apply static field patches (cannot be done via method hooks)
-        HookList.initStaticFields(loader);
+            // Apply static field patches
+            HookList.initStaticFields(loader);
 
-        Log.i(Main.TAG, "All hooks applied to system_server");
+            Logger.i("All hooks applied to system_server successfully");
+        } catch (Throwable th) {
+            Logger.e("Failed to apply system_server hooks", th);
+        }
     }
 }
