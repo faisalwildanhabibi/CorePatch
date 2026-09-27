@@ -19,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+      # Nonaktifkan Gradle Configuration Cache — ZygoteLoader plugin belum kompatibel
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
 
     steps:
       - name: Checkout
@@ -46,33 +47,36 @@ jobs:
       - name: Prewarm JitPack dependencies
         run: |
           echo "=== Prewarming JitPack artifacts ==="
-          # Trigger JitPack build for all required artifacts (transitive included)
           JITPACK="https://jitpack.io"
-          # ZygoteLoader plugin
-          curl -sf --retry 5 --retry-delay 10 \
-            "$JITPACK/com/github/vova7878/ZygoteLoader/358a146d87/build.log" || true
-          # AndroidVMTools
-          curl -sf --retry 5 --retry-delay 10 \
-            "$JITPACK/com/github/vova7878/AndroidVMTools/118f566096/build.log" || true
-          # R8Annotations
-          curl -sf --retry 5 --retry-delay 10 \
-            "$JITPACK/com/github/vova7878/R8Annotations/v0.0.3/build.log" || true
-          # DexFile (transitive dependency of AndroidVMTools)
-          curl -sf --retry 5 --retry-delay 10 \
-            "$JITPACK/com/github/vova7878/DexFile/v1.0.3/build.log" || true
-          echo "=== Waiting for JitPack builds ==="
-          sleep 15
-          # Verify artifacts are available
-          for URL in \
-            "$JITPACK/com/github/vova7878/ZygoteLoader/358a146d87/ZygoteLoader-358a146d87.pom" \
-            "$JITPACK/com/github/vova7878/AndroidVMTools/118f566096/AndroidVMTools-118f566096.pom" \
-            "$JITPACK/com/github/vova7878/DexFile/v1.0.3/DexFile-v1.0.3.pom"; do
-            if curl -sf "$URL" > /dev/null; then
-              echo "OK: $URL"
+          for ARTIFACT in \
+            "com/github/vova7878/ZygoteLoader/358a146d87" \
+            "com/github/vova7878/AndroidVMTools/118f566096" \
+            "com/github/vova7878/R8Annotations/v0.0.3" \
+            "com/github/vova7878/DexFile/v1.0.3"; do
+            URL="$JITPACK/$ARTIFACT/build.log"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            echo "[$STATUS] $ARTIFACT"
+          done
+          echo "=== Waiting 20s for JitPack warm-up ==="
+          sleep 20
+          # Verify all POM files available before Gradle runs
+          ALL_OK=true
+          for ENTRY in \
+            "com/github/vova7878/ZygoteLoader/358a146d87/ZygoteLoader-358a146d87.pom" \
+            "com/github/vova7878/AndroidVMTools/118f566096/AndroidVMTools-118f566096.pom" \
+            "com/github/vova7878/DexFile/v1.0.3/DexFile-v1.0.3.pom"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$JITPACK/$ENTRY")
+            if [ "$STATUS" = "200" ]; then
+              echo "[OK] $ENTRY"
             else
-              echo "WARN: Not yet available: $URL"
+              echo "[WARN $STATUS] $ENTRY - may still be building"
+              ALL_OK=false
             fi
           done
+          if [ "$ALL_OK" = "false" ]; then
+            echo "Some artifacts not ready yet, waiting 30s more..."
+            sleep 30
+          fi
 
       - name: Build info
         run: |
@@ -81,11 +85,12 @@ jobs:
           java -version
           ./gradlew --version
 
-      - name: Build ZygiskCore Release
-        run: ./gradlew :zygisk:assembleFullRelease --stacktrace --info 2>&1 | tail -200
-
-      - name: Build ZygiskCore Debug
-        run: ./gradlew :zygisk:assembleFullDebug --stacktrace
+      - name: Build ZygiskCore (Release + Debug, single invocation)
+        # Satu perintah Gradle untuk Release + Debug — menghindari config cache stale state
+        run: |
+          ./gradlew :zygisk:assembleFullRelease :zygisk:assembleFullDebug \
+            --no-configuration-cache \
+            --stacktrace
 
       - name: Find built artifacts
         if: success()
@@ -104,8 +109,9 @@ jobs:
             DIR=$(dirname "$f")
             EXT="${f##*.}"
             BASE=$(basename "$f" ".${EXT}")
-            mv "$f" "$DIR/${BASE}-${BRANCH}-${SHORT_SHA}.${EXT}"
-            echo "Renamed: $(basename $DIR/${BASE}-${BRANCH}-${SHORT_SHA}.${EXT})"
+            NEWNAME="$DIR/${BASE}-${BRANCH}-${SHORT_SHA}.${EXT}"
+            mv "$f" "$NEWNAME"
+            echo "Renamed: $(basename $NEWNAME)"
           done
 
       - name: Upload ZygiskCore artifacts
@@ -128,3 +134,9 @@ jobs:
           echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`$(echo ${{ github.sha }} | cut -c1-7)\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Features" >> $GITHUB_STEP_SUMMARY
+          echo "- No Xposed/LSPosed required" >> $GITHUB_STEP_SUMMARY
+          echo "- Works with Zygisk Next + ReSukiSu" >> $GITHUB_STEP_SUMMARY
+          echo "- 13 CorePatch N hooks + Restricted Settings bypass" >> $GITHUB_STEP_SUMMARY
+          echo "- Android 8.1–17 (API 28–37) support" >> $GITHUB_STEP_SUMMARY
