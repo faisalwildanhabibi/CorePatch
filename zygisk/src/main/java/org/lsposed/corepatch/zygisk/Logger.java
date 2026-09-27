@@ -10,10 +10,8 @@ import java.util.Locale;
 
 public class Logger {
     public static final String TAG = "ZygiskCore";
-    private static final String[] LOG_PATHS = {
-        "/data/system/zygisk_core.log",
-        "/data/local/tmp/zygisk_core.log"
-    };
+    // Log strictly into the module's own folder in Magisk/KernelSU/ReSukiSu
+    private static final String MODULE_LOG_PATH = "/data/adb/modules/org_lsposed_corepatch_zygisk/zygisk_core.log";
 
     public static void i(String msg) {
         Log.i(TAG, msg);
@@ -45,18 +43,18 @@ public class Logger {
         String entry = timestamp + " [" + android.os.Process.myPid() + "] " + line + "\n";
         byte[] bytes = entry.getBytes(StandardCharsets.UTF_8);
 
-        for (String path : LOG_PATHS) {
-            try {
-                File f = new File(path);
+        try {
+            File f = new File(MODULE_LOG_PATH);
+            File parent = f.getParentFile();
+            if (parent != null && parent.exists()) {
                 try (FileOutputStream fos = new FileOutputStream(f, true)) {
                     fos.write(bytes);
                     fos.flush();
                 }
                 f.setReadable(true, false);
                 f.setWritable(true, false);
-                break;
-            } catch (Throwable ignored) {
             }
+        } catch (Throwable ignored) {
         }
     }
 }

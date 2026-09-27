@@ -9,6 +9,7 @@ import com.v7878.unsafe.invoke.EmulatedStackFrame;
 import com.v7878.unsafe.invoke.Transformers;
 import com.v7878.vmtools.Hooks;
 import com.v7878.vmtools.Hooks.EntryPointType;
+import java.lang.reflect.Method;
 
 public class SystemServerInit {
     private static final String SYSTEM_SERVER_CLASS = "com.android.server.SystemServer";
@@ -25,7 +26,7 @@ public class SystemServerInit {
             if (SYSTEM_SERVER_CLASS.equals(className)) {
                 if (!hooksApplied) {
                     hooksApplied = true;
-                    Logger.i("system_server detected — applying hooks now");
+                    Logger.i("system_server detected - applying hooks now");
                     EntryPoint.initSystemServer(loader);
                 }
             }
@@ -40,8 +41,15 @@ public class SystemServerInit {
             Class<?> initClass = ClassUtils.sysClass(RUNTIME_INIT_CLASS);
             String methodName = (SDK_INT == 26) ? "invokeStaticMain" : "findStaticMain";
 
-            var method = getHiddenMethod(initClass, methodName,
-                String.class, String[].class, ClassLoader.class);
+            Method method;
+            try {
+                method = getHiddenMethod(initClass, methodName,
+                    String.class, String[].class, ClassLoader.class);
+            } catch (Throwable t) {
+                Logger.w("getHiddenMethod failed, falling back to getDeclaredMethod: " + t.getMessage());
+                method = initClass.getDeclaredMethod(methodName,
+                    String.class, String[].class, ClassLoader.class);
+            }
 
             Hooks.hook(method, EntryPointType.CURRENT, (original, frame) -> {
                 runForSystemServer(frame);
