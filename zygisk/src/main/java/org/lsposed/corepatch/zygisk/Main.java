@@ -11,6 +11,8 @@ import com.v7878.zygisk.ZygoteLoader;
 @DoNotShrinkType
 @DoNotObfuscateType
 public class Main {
+    public static final String TAG = Logger.TAG;
+
     @SuppressWarnings("unused")
     @DoNotShrink
     @DoNotObfuscate

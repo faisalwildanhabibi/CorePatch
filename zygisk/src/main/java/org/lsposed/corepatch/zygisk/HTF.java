@@ -21,7 +21,7 @@ import com.v7878.vmtools.HookTransformer;
  *   HTF.constant(value, run, exclude) — conditional return based on call stack
  */
 public class HTF {
-    private static final String TAG = Main.TAG;
+    private static final String TAG = Logger.TAG;
 
     public static class StackException extends Exception {
         public StackException() { super("", null, true, false); }
@@ -29,7 +29,7 @@ public class HTF {
 
     private static void printStackTrace(EmulatedStackFrame frame) {
         if (BuildConfig.DEBUG) {
-            Log.e(TAG, frame.toString(), new StackException());
+            Logger.d(frame.toString());
         }
     }
 
@@ -50,7 +50,7 @@ public class HTF {
         } else if (ret == void.class) {
             // void — NOP is sufficient
         } else {
-            Log.e(TAG, "HTF.TRUE: unexpected return type: " + ret, new StackException());
+            Logger.e("HTF.TRUE: unexpected return type: " + ret, new StackException());
             Transformers.invokeExact(original, frame);
         }
     };
