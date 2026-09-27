@@ -1,0 +1,69 @@
+import com.v7878.zygisk.gradle.ZygoteLoader
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.java.zygisk)
+}
+
+android {
+    namespace 'org.lsposed.corepatch.zygisk'
+    compileSdk 37
+
+    defaultConfig {
+        minSdk 28
+        targetSdk 37
+        versionCode 2
+        versionName '1.1.0-zygisk'
+
+        buildConfigField('boolean', 'RUN_FOR_SYSTEM_SERVER', 'true')
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    buildTypes {
+        release {
+            debuggable false
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles 'proguard-rules.pro'
+        }
+        debug {
+            debuggable true
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    flavorDimensions += ['type']
+    productFlavors {
+        full {
+            dimension 'type'
+            zygisk {
+                packages(ZygoteLoader.PACKAGE_SYSTEM_SERVER)
+                id = 'org_lsposed_corepatch_zygisk'
+                name = 'ZygiskCore'
+                archiveName = 'ZygiskCore'
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+zygisk {
+    author = 'faisalwildanhabibi'
+    description = 'CorePatch N — All features as Zygisk module (no Xposed required). Targets: Android 8.1–17 (API 28–37).'
+    entrypoint = 'org.lsposed.corepatch.zygisk.Main'
+    attachNativeLibs = false
+    generateChecksums = true
+}
+
+dependencies {
+    implementation libs.androidvmtools
+    implementation libs.r8.annotations
+}
