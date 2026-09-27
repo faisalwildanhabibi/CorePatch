@@ -1,6 +1,5 @@
 package org.lsposed.corepatch.zygisk;
 
-import static com.v7878.hooks.pmpatch.Main.TAG;
 import static com.v7878.unsafe.invoke.EmulatedStackFrame.RETURN_VALUE_IDX;
 
 import android.util.Log;
