@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # Nonaktifkan Gradle Configuration Cache — ZygoteLoader plugin belum kompatibel
       GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.configuration-cache=false"
 
     steps:
@@ -44,40 +43,6 @@ jobs:
           key: gradle-zygisk-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
           restore-keys: gradle-zygisk-${{ runner.os }}-
 
-      - name: Prewarm JitPack dependencies
-        run: |
-          echo "=== Prewarming JitPack artifacts ==="
-          JITPACK="https://jitpack.io"
-          for ARTIFACT in \
-            "com/github/vova7878/ZygoteLoader/358a146d87" \
-            "com/github/vova7878/AndroidVMTools/118f566096" \
-            "com/github/vova7878/R8Annotations/v0.0.3" \
-            "com/github/vova7878/DexFile/v1.0.3"; do
-            URL="$JITPACK/$ARTIFACT/build.log"
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-            echo "[$STATUS] $ARTIFACT"
-          done
-          echo "=== Waiting 20s for JitPack warm-up ==="
-          sleep 20
-          # Verify all POM files available before Gradle runs
-          ALL_OK=true
-          for ENTRY in \
-            "com/github/vova7878/ZygoteLoader/358a146d87/ZygoteLoader-358a146d87.pom" \
-            "com/github/vova7878/AndroidVMTools/118f566096/AndroidVMTools-118f566096.pom" \
-            "com/github/vova7878/DexFile/v1.0.3/DexFile-v1.0.3.pom"; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$JITPACK/$ENTRY")
-            if [ "$STATUS" = "200" ]; then
-              echo "[OK] $ENTRY"
-            else
-              echo "[WARN $STATUS] $ENTRY - may still be building"
-              ALL_OK=false
-            fi
-          done
-          if [ "$ALL_OK" = "false" ]; then
-            echo "Some artifacts not ready yet, waiting 30s more..."
-            sleep 30
-          fi
-
       - name: Build info
         run: |
           echo "Branch : ${{ github.ref_name }}"
@@ -85,8 +50,7 @@ jobs:
           java -version
           ./gradlew --version
 
-      - name: Build ZygiskCore (Release + Debug, single invocation)
-        # Satu perintah Gradle untuk Release + Debug — menghindari config cache stale state
+      - name: Build ZygiskCore (Release + Debug)
         run: |
           ./gradlew :zygisk:assembleFullRelease :zygisk:assembleFullDebug \
             --no-configuration-cache \
