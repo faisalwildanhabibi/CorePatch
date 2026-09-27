@@ -57,6 +57,7 @@ android {
 }
 
 configurations.all {
+    exclude group: 'com.github.vova7878', module: 'AndroidMisc'
     resolutionStrategy {
         dependencySubstitution {
             substitute module('com.github.vova7878:DexFile:v1.0.3') using module('com.github.vova7878:DexFile:c4fdf48d72')
@@ -67,7 +68,7 @@ configurations.all {
 
 zygisk {
     author = 'faisalwildanhabibi'
-    description = 'CorePatch N — All features as Zygisk module (no Xposed required). Targets: Android 8.1–17 (API 28–37).'
+    description = 'CorePatch N - All features as Zygisk module (no Xposed required). Targets: Android 8.1-17 (API 28-37).'
     entrypoint = 'org.lsposed.corepatch.zygisk.Main'
     attachNativeLibs = false
     generateChecksums = true
